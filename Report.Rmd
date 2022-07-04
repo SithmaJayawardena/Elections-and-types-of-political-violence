@@ -1,0 +1,121 @@
+---
+title: "Do elections attract violent or non-violent or both types of engagements?"
+output: html_notebook
+---
+
+An election is a sensitive event with meaningful political and economic implications for many people. It represents an opportunity for the redistribution of power and a shift in priorities for a nation. As such, it invites extreme responses by citizens, opposition parties and terrorists, or the state and its proxies that sometimes can be translated to political violence. The analysis focuses on the core of the politically critical period, examining the month of the elections (15 days before and after an election day).By examining a longitudinal sample of 49 African countries’ election cycles between the years 1997-2020 in this project, I assessed which type of political action that period invites, whether it is a nonviolent protest or the wide usage of extreme violence.
+
+I used Armed Conflict Location and Event Data (ACLED) that collects real-time data on the locations, dates, actors, fatalities, and types of all reported political violence and protest events around the world. Additionally, my data set includes several other control variables to account for factors that may affect political and electoral violence, extracted from the Varieties of Democracy dataset and World Bank.
+
+The questions explored in this project are as follows:
+1. What are the types of political violence?
+2. Is there a difference in the trends in incidence of political violence events types closer to election days?
+3. Which type of political action that period invites, whether it is a nonviolent event or the wide usage of extreme violence? 
+
+The goals of this study:
+
+1. Use logistic regression models to test the association between elections and different types of political violence.
+2. Data visualization techniques for a better understanding about the data.
+3. Practice tabular data extraction and manipulation for an efficient analysis in R.
+4. Use different R Studio libraries. (e.g. sjPlot, webshot, ggplot2 etc.)
+
+#### Importing libraries
+
+```{r}
+suppressPackageStartupMessages({library(dummies)
+library(ggplot2)
+library(sjPlot)
+library(webshot)
+library(readxl)})
+```
+
+#### Importing the dataset
+
+```{r}
+options(warn = -2)
+options(warn = -1)
+full = read_xlsx('/Users/sithmasineka/Desktop/Research_3/R project/Project1/full.xlsx')
+df1 = as.data.frame(full)
+head(df1)
+```
+
+#### Question 1: What are the types of political violence?
+
+Let's see what are the types of political violence according to ACLED categorization. We can see that there are battles, explosion/remote violence, protest, riots, strategic developments and violence against civilians. Notice that there are more of battles, protests and violence against civilians than the other types. Based on the definitions in ACLED codebook for each event type, we can consider riots, protests and violence against civilians as lower levels of violence while battlesand explosions as extreme levels of violence. Strategic developments are not really violence type, but can cause future violence. Therefore, I didn't exclude those events in my analysis.
+
+```{r}
+ggplot(data = full, aes(x=as.factor(event_type), fill=as.factor(event_type))) + scale_fill_hue(c = 60) +
+  geom_bar() + theme(legend.position="none") + ggtitle('Political violence event types') + xlab('Count') + 
+  ylab('Event type') + theme(axis.text=element_text(size=12), axis.title=element_text(size=14),title = element_text(size = 14),axis.text.x = element_text(angle = 45,vjust = 0.6,hjust = 0.5))
+```
+
+#### Question 2: Is there a difference in the trends in incidence of political violence events types closer to election days?
+
+To address the next question, we need to do some data pre-processing. First, I dummy coded the event type column. And then logged GDP, population and Technical Corporation Grant columns. Columns 'Since' and 'Until' have the characters '.' and 'NA' in some of the rows. 'Since' column is the number of days since the previous election day to the day of the event and 'Until' column is the number of days to the next election day from the day of the event. I replaced the characters of these columns to numbers.
+
+```{r}
+dff1 = dummy.data.frame(df1, names = 'event_type' , sep = ".")
+colnames(dff1)=c('country','event_date','year','Battles','Explosions','Protests','Riots','Strategic_developments','Violence_against_civilians','inter1','Until','Since','kill','torture','polity','fair','corrupt', 'war','GDP','population','tech')
+dff1$std.logGDP = scale(log(dff1$GDP))
+dff1$std.logpop = scale(log(dff1$population))
+dff1$std.logtech = scale(log(dff1$tech))
+dff1$Until = as.integer(dff1$Until)
+dff1$Since = as.integer(dff1$Since)
+dff1$polity = dff1$polity+10
+dff1$Since = ifelse(dff1$Since == '.', 1000000,dff1$Since)
+dff1$Until[is.na(dff1$Until)] = -1000000
+dff1$Since = as.integer(dff1$Since)
+dff1 = dff1 %>% mutate(pre = ifelse((abs(Until) <= Since), 1,0))
+dff1$post = ifelse(dff1$pre == 0, 1,0)
+```
+
+#### Which type of political action that period invites, whether it is a nonviolent event or the wide usage of extreme violence? 
+
+##### Logistic regression models
+I broke down the analysis into two sets capturing pre-elections violence and activism and the post-election violence and activism. We chose five models to further detect variations in trends in the five violence event type and action. I illustrate odds ratios of the logistic regression models here. 
+
+##### Pre-election violence
+
+The independent variable is 'pre1' coded 1 if an event falls into the 15 days time frame of pre-election period. Main dependent variable in each model is the event type: battles, explosion/remote violence, protest, riots and violence against civilians coded 1 if the event falls into the category considered in the model.
+
+All models propose significant positive or negative relationships between pre-election violence and the examined event type except for explosions/remote violence. Riots and violence against civilians increase during the period (50% rise in riots and 20% rise in violence against civilians) while nonviolent protest decrease (12% decrease). Extreme violence is less likely to take place during that period with fewer battles and statistically insignificant relations with explosive and remote violence. 
+
+```{r}
+dff1$pre1 = ifelse((dff1$pre==1) & (-15 <= dff1$Until) & (dff1$Until <= 0), 1, 0)
+
+preMod1 = glm(pre1 ~ Battles+factor(Strategic_developments)+kill+torture+polity+fair+corrupt+factor(war)+std.logGDP +std.logpop+std.logtech, data = dff1,family = 'binomial')
+preMod2=glm(pre1 ~ Explosions+factor(Strategic_developments)+kill+torture+polity+fair+corrupt+factor(war)+std.logGDP+std.logpop+std.logtech, data = dff1,family = 'binomial')
+preMod3=glm(pre1 ~ Protests+factor(Strategic_developments)+kill+torture+polity+fair+corrupt+factor(war)+std.logGDP+std.logpop+std.logtech, data = dff1,family = 'binomial')
+preMod4=glm(pre1 ~ Riots+factor(Strategic_developments)+kill+torture+polity+fair+corrupt+factor(war)+std.logGDP+std.logpop+std.logtech, data = dff1,family = 'binomial')
+preMod5=glm(pre1 ~ Violence_against_civilians+factor(Strategic_developments)+kill+torture+polity+fair+corrupt+factor(war)+std.logGDP+std.logpop+std.logtech, data = dff1,family = 'binomial')
+
+pl = c(Battles='Battles',Explosions='Explosions/Remote violence',Protests='Protests',Riots='Riots',
+     Violence_against_civilians='Violence against civilians',kill='Freedom from political killings',
+     torture='Freedom from torture',polity='Polity combined score',fair='Elections free and fair',
+     corrupt='Political corruption index','factor(war)1' = 'War',std.logGDP='GDP (log)',std.logpop='Population (log)', std.logtech='Technical cooperation grants (log)','factor(Strategic_developments)1'='Strategic developments')
+tab_model(preMod1,preMod2,preMod3,preMod4,preMod5,collapse.ci = TRUE,dv.labels = c('Model 1', 'Model 2','Model 3','Model 4','Model 5'), p.style = "stars",show.reflvl = FALSE,show.aic = TRUE,pred.labels = pl,order.terms = c(1,2,13:16,3:12),digits = 4, title='Logistic models (odds ratios) for types of pre-election violence (election month)',df.method = 'wald',file='pre_eleOR.html')
+webshot("pre_eleOR.html", "pre_eleOR.png")
+```
+
+#### Post-election violence
+
+The independent variable is 'post1' coded 1 if an event falls into the 15 days time frame of post-election period. Main dependent variable in each model is the event type: battles, explosion/remote violence, protest, riots and violence against civilians coded 1 if the event falls into the category considered in the model.
+
+Like the pre-elections period, extreme political violence is either less likely (battles) or not statistically significant (remote violence). Nonviolent protest is even less likely to occur, dropping from about 32% to about 14%. Political violence on the other hand shows split results. Riots are even more likely to occur than before the election, souring from about 60% to 98%. Yet, violence against civilians, which captures state repression and other actors’ attempts to influence voters’ behavior, turn statistically insignificant. 
+
+```{r}
+dff1$post1 = ifelse((dff1$post==1) & (dff1$Since <= 15) & (dff1$Since > 0), 1, 0)
+postMod1 = glm(post1 ~ Battles+factor(Strategic_developments)+kill+torture+polity+fair+corrupt+factor(war)+std.logGDP +std.logpop+std.logtech, data = dff1,family = 'binomial')
+postMod2 = glm(post1 ~ Explosions+factor(Strategic_developments)+kill+torture+polity+fair+corrupt+factor(war)+std.logGDP+std.logpop+std.logtech, data = dff1,family = 'binomial')
+postMod3 = glm(post1 ~ Protests+factor(Strategic_developments)+kill+torture+polity+fair+corrupt+factor(war)+std.logGDP+std.logpop+std.logtech, data = dff1,family = 'binomial')
+postMod4 = glm(post1 ~ Riots+factor(Strategic_developments)+kill+torture+polity+fair+corrupt+factor(war)+std.logGDP+std.logpop+std.logtech, data = dff1,family = 'binomial')
+postMod5 = glm(post1 ~ Violence_against_civilians+factor(Strategic_developments)+kill+torture+polity+fair+corrupt+factor(war)+std.logGDP+std.logpop+std.logtech, data = dff1,family = 'binomial')
+
+tab_model(postMod1,postMod2,postMod3,postMod4,postMod5,collapse.ci = TRUE,dv.labels = c('Model 1', 'Model 2','Model 3','Model 4','Model 5'),p.style = "stars",show.reflvl = FALSE,show.aic = TRUE,pred.labels = pl,order.terms = c(1,2,13:16,3:12),digits = 4,title='Logistic models (odds ratios) for types of post-election violence (election month)',df.method = 'wald',file = "post_ele_OR.html")
+webshot("post_ele_OR.html", "post_ele_OR.png")
+```
+
+#### Summary
+
+The election cycle of one month which is ver closer to election day invites a specific type of political action, a violent one. Nonviolent protest is pushed aside in favor of more aggressive political action. Violence against civilians is more likely to happen before the election but less so after the elections. Political violence driven by citizens that manipulates public rage into riots is more common across the entire period with an uptake during post-elections. Furthermore, we see that extreme violence is either less likely to take place during that period (battles) or is not associated with the period (remote violence). 
+
