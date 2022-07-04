@@ -16,3 +16,5 @@ The goals of this study:
 2. Data visualization techniques for a better understanding about the data.
 3. Practice tabular data extraction and manipulation for an efficient analysis in R.
 4. Use different R Studio libraries. (e.g. sjPlot, webshot, ggplot2 etc.)
+
+![My Image](pic1.jpg)
