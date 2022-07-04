@@ -41,7 +41,7 @@ head(df1)
 
 #### Question 1: What are the types of political violence?
 
-Let's see what are the types of political violence according to ACLED categorization. We can see that there are battles, explosion/remote violence, protest, riots, strategic developments and violence against civilians. Notice that there are more of battles, protests and violence against civilians than the other types. Based on the definitions in ACLED codebook for each event type, we can consider riots, protests and violence against civilians as lower levels of violence while battlesand explosions as extreme levels of violence. Strategic developments are not really violence type, but can cause future violence. Therefore, I didn't exclude those events in my analysis.
+Let's see what are the types of political violence according to ACLED categorization. We can see that there are battles, explosion/remote violence, protest, riots, strategic developments and violence against civilians. Notice that there are more of battles, protests and violence against civilians than the other types. Based on the definitions in ACLED codebook for each event type, we can consider riots, protests and violence against civilians as lower levels of violence while battlesand explosions as extreme levels of violence. Strategic developments are not really violence type, but can cause future violence. Therefore, I excluded those events in my analysis.
 
 ```{r}
 ggplot(data = full, aes(x=as.factor(event_type), fill=as.factor(event_type))) + scale_fill_hue(c = 60) +
@@ -51,7 +51,9 @@ ggplot(data = full, aes(x=as.factor(event_type), fill=as.factor(event_type))) + 
 
 #### Question 2: Is there a difference in the trends in incidence of political violence events types closer to election days?
 
-To address the next question, we need to do some data pre-processing. First, I dummy coded the event type column. And then logged GDP, population and Technical Corporation Grant columns. Columns 'Since' and 'Until' have the characters '.' and 'NA' in some of the rows. 'Since' column is the number of days since the previous election day to the day of the event and 'Until' column is the number of days to the next election day from the day of the event. I replaced the characters of these columns to numbers.
+To address the next question, we need to do some data pre-processing. First, I dummy coded the event type column. And then logged GDP, population and Technical Corporation Grant columns. Columns 'Since' and 'Until' have the characters '.' and 'NA' in some of the rows. 'Since' column is the number of days since the previous election day to the day of the event and 'Until' column is the number of days to the next election day from the day of the event. I replaced the characters of these columns to numbers. 
+
+Now let's see the incidence of political violence types around the election.In this plot, negative values of the x-axis represent number of days to the next election day from the event day and positive values represent the number of days from the previous election day to the event day. Zero value indicates the election day itself. Notice form the plot that different event types have different trend patterns around the election, but all have a peak around the election day (zero value).
 
 ```{r}
 dff1 = dummy.data.frame(df1, names = 'event_type' , sep = ".")
@@ -67,9 +69,14 @@ dff1$Until[is.na(dff1$Until)] = -1000000
 dff1$Since = as.integer(dff1$Since)
 dff1 = dff1 %>% mutate(pre = ifelse((abs(Until) <= Since), 1,0))
 dff1$post = ifelse(dff1$pre == 0, 1,0)
+
+dff1=dff1 %>% mutate(days = ifelse(pre==1,Until,Since))
+ggplot(dff1, aes(days, colour = event_type)) + ggtitle('Distribution of types of violent events around the election')+geom_freqpoly(binwidth = 200)+xlab('Number of days to and from election' )+
+theme(axis.text=element_text(size=12),axis.title=element_text(size=14),title = element_text(size = 14),legend.text = element_text(size=12))
+
 ```
 
-#### Which type of political action that period invites, whether it is a nonviolent event or the wide usage of extreme violence? 
+#### Question 3: Which type of political action that period invites, whether it is a nonviolent event or the wide usage of extreme violence? 
 
 ##### Logistic regression models
 I broke down the analysis into two sets capturing pre-elections violence and activism and the post-election violence and activism. We chose five models to further detect variations in trends in the five violence event type and action. I illustrate odds ratios of the logistic regression models here. 

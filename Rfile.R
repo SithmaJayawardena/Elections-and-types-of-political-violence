@@ -20,6 +20,12 @@ ggplot(data = full, aes(x=as.factor(event_type), fill=as.factor(event_type))) + 
   geom_bar() + theme(legend.position="none") + ggtitle('Political violence event types') + xlab('Count') + 
   ylab('Event type') + theme(axis.text=element_text(size=12), axis.title=element_text(size=14),title = element_text(size = 14),axis.text.x = element_text(angle = 45,vjust = 0.6,hjust = 0.5))
 
+# Distribution of types of violent events around the election
+
+dff1=dff1 %>% mutate(days = ifelse(pre==1,Until,Since))
+ggplot(dff1, aes(days, colour = event_type)) + ggtitle('Distribution of types of violent events around the election')+geom_freqpoly(binwidth = 200)+xlab('Number of days to and from election' )+
+  theme(axis.text=element_text(size=12),axis.title=element_text(size=14),title = element_text(size = 14),legend.text = element_text(size=12))
+
 # data pre-processing
 
 dff1 = dummy.data.frame(df1, names = 'event_type' , sep = ".")
